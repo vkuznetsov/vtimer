@@ -221,9 +221,4 @@ func notifyTimeout(timer *timer) {
 	if err := beeep.Notify("Time out", msg, ""); err != nil {
 		panic(err)
 	}
-
-	err := beeep.Beep(10000, 100)
-	if err != nil {
-		panic(err)
-	}
 }
