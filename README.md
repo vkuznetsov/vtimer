@@ -19,4 +19,8 @@ Usage of vtimer:
         Units for display remaining time. Supported values: "h" - hours only; "hm" - hours and minutes; "hms" - hours, minutes and seconds; "ms" - minutes and seconds; "s" - seconds only (default "ms")
   -interval string
         Timer interval. Ex: "25m", "1h5m14s". Supported units - h, m, s (default "25m")
+  -no-state-symbols
+        Do not use symbols for timer state and actions
+  -state-symbols string
+        Symbols for timer state and actions: restart, stop, continue (default "○□▷")
 ```

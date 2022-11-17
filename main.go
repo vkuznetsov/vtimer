@@ -18,11 +18,14 @@ type timer struct {
 	interval time.Duration
 	commands chan timerCommand
 	events   chan timerEvent
+	symbols timerSymbolFn
 }
 
 type displayFn func(diff time.Duration) string
 type timerCommand int
 type timerEvent int
+type timerSymbolCode int
+type timerSymbolFn func(symbolCode timerSymbolCode) string
 
 const (
 	timerStop timerCommand = iota
@@ -32,6 +35,12 @@ const (
 
 const (
 	timeOut timerEvent = iota
+)
+
+const (
+	timerStopSymbol timerSymbolCode = iota
+	timerContinueSymbol
+	timerRestartSymbol
 )
 
 func main() {
@@ -55,6 +64,7 @@ func timerLoop(timer *timer) {
 			case timerStop:
 				started = false
 				restInterval = stopTime.Sub(now)
+				systray.SetTitle(timer.symbols(timerStopSymbol) + " " + timer.display(diff))
 			case timerContinue:
 				started = true
 				stopTime = now.Add(restInterval)
@@ -69,10 +79,10 @@ func timerLoop(timer *timer) {
 			diff = stopTime.Sub(now)
 
 			if diff > 0 {
-				systray.SetTitle(timer.display(diff))
+				systray.SetTitle(timer.symbols(timerContinueSymbol) + " " + timer.display(diff))
 			} else {
 				started = false
-				systray.SetTitle("timeout")
+				systray.SetTitle(timer.symbols(timerStopSymbol) + " " + timer.display(timer.interval))
 				notifyTimeout(timer)
 			}
 		}
@@ -82,6 +92,8 @@ func timerLoop(timer *timer) {
 }
 
 func onReady() {
+	symbolsStr := flag.String("state-symbols", "○□▷", `Symbols for timer state and actions: restart, stop, continue`)
+	no_symbols := flag.Bool("no-state-symbols", false, `Do not use symbols for timer state and actions`)
 	interval_str := flag.String("interval", "25m", `Timer interval. Ex: "25m", "1h5m14s". Supported units - h, m, s`)
 	display_str := flag.String("display", "ms", `Units for display remaining time. Supported values: `+
 		`"h" - hours only; `+
@@ -102,16 +114,21 @@ func onReady() {
 		showHelpAndExit(err)
 	}
 
+	symbols, err := parseTimerSymbols(*symbolsStr, *no_symbols)
+	if err != nil {
+		showHelpAndExit(err)
+	}
+
 	systray.SetTooltip(fmt.Sprintf("Timer set %s", *interval_str))
-	restartMenuItem := systray.AddMenuItem("Restart", "Restart timer")
-	stopMenuItem := systray.AddMenuItem("Stop", "Stop timer")
-	continueMenuItem := systray.AddMenuItem("Continue", "Continue stopped timer")
+	restartMenuItem := systray.AddMenuItem(symbols(timerRestartSymbol)+" Restart", "Restart timer")
+	stopMenuItem := systray.AddMenuItem(symbols(timerStopSymbol)+" Stop", "Stop timer")
+	continueMenuItem := systray.AddMenuItem(symbols(timerContinueSymbol)+" Continue", "Continue stopped timer")
 	systray.AddSeparator()
 	quitMenuItem := systray.AddMenuItem("Quit", "Quit the whole app")
 
 	timerCommands := make(chan timerCommand)
 	timerEvents := make(chan timerEvent)
-	timer := timer{interval: interval, display: display, commands: timerCommands, events: timerEvents}
+	timer := timer{interval: interval, display: display, commands: timerCommands, events: timerEvents, symbols: symbols}
 
 	go func() {
 		timerStarted := true
@@ -217,6 +234,39 @@ func parseDisplay(val string) (fn displayFn, err error) {
 	}
 
 	return fn, nil
+}
+
+func parseTimerSymbols(symbols string, dontUseSymbols bool) (timerSymbolFn, error) {
+	if dontUseSymbols {
+		return func(symbolCode timerSymbolCode) string { return "" }, nil
+	}
+
+	runes := make([]string, 3)
+	idx := 0
+	for _, symbol := range symbols {
+		if idx > 2 {
+			return nil, errors.New("invalid symbols argument")
+		}
+
+		runes[idx] = string(symbol)
+		idx++
+
+	}
+
+	res := func(symbolCode timerSymbolCode) string {
+		switch symbolCode {
+		case timerRestartSymbol:
+			return runes[0]
+		case timerStopSymbol:
+			return runes[1]
+		case timerContinueSymbol:
+			return runes[2]
+		default:
+			panic(fmt.Sprintf("unexpected symbol requested %d", symbolCode))
+		}
+	}
+
+	return res, nil
 }
 
 func showHelpAndExit(err error) {
