@@ -6,8 +6,10 @@ Start and stop commands are available from the menu.
 
 ### Usage
 
+```
 go build
 ./vtimer --help
+```
 
 ```
 Usage of vtimer:
