@@ -38,7 +38,7 @@ func main() {
 	systray.Run(onReady, onExit)
 }
 
-func startTimer(timer *timer) {
+func timerLoop(timer *timer) {
 	counter := timer.interval
 	started := true
 
@@ -137,7 +137,7 @@ func onReady() {
 		}
 	}()
 
-	go startTimer(&timer)
+	go timerLoop(&timer)
 }
 
 func onExit() {
