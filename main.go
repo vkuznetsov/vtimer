@@ -39,36 +39,45 @@ func main() {
 }
 
 func timerLoop(timer *timer) {
-	counter := timer.interval
+	var restInterval time.Duration
+	var diff time.Duration
+
 	started := true
+	now := time.Now()
+	stopTime := now.Add(timer.interval)
 
 	for {
-		if started {
-			if counter > 0 {
-				systray.SetTitle(timer.display(counter))
-				counter -= time.Second
-			}
-			if counter == 0 {
-				started = false
-				systray.SetTitle("timeout")
-				notifyTimeout(timer)
-			}
-		}
+		now = time.Now()
 
 		select {
 		case cmd := <-timer.commands:
 			switch cmd {
 			case timerStop:
 				started = false
+				restInterval = stopTime.Sub(now)
 			case timerContinue:
 				started = true
+				stopTime = now.Add(restInterval)
 			case timerRestart:
-				counter = timer.interval
+				stopTime = now.Add(timer.interval)
 				started = true
 			}
 		default:
-			time.Sleep(time.Second)
 		}
+
+		if started {
+			diff = stopTime.Sub(now)
+
+			if diff > 0 {
+				systray.SetTitle(timer.display(diff))
+			} else {
+				started = false
+				systray.SetTitle("timeout")
+				notifyTimeout(timer)
+			}
+		}
+
+		time.Sleep(time.Second)
 	}
 }
 
