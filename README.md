@@ -4,7 +4,9 @@ Very simple cross-platform systray timer.
 The time interval and time displaying format are passed by command line arguments.
 Start and stop commands are available from the menu.
 
-### Usage
+### Build and Usage
+
+See [Platform Notes for getlantern/systray](https://github.com/getlantern/systray#platform-notes)
 
 ```
 go build
