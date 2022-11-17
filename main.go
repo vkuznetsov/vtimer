@@ -93,9 +93,9 @@ func timerLoop(timer *timer) {
 
 func onReady() {
 	symbolsStr := flag.String("state-symbols", "○□▷", `Symbols for timer state and actions: restart, stop, continue`)
-	no_symbols := flag.Bool("no-state-symbols", false, `Do not use symbols for timer state and actions`)
-	interval_str := flag.String("interval", "25m", `Timer interval. Ex: "25m", "1h5m14s". Supported units - h, m, s`)
-	display_str := flag.String("display", "ms", `Units for display remaining time. Supported values: `+
+	noSymbols := flag.Bool("no-state-symbols", false, `Do not use symbols for timer state and actions`)
+	intervalStr := flag.String("interval", "25m", `Timer interval. Ex: "25m", "1h5m14s". Supported units - h, m, s`)
+	displayStr := flag.String("display", "ms", `Units for display remaining time. Supported values: `+
 		`"h" - hours only; `+
 		`"hm" - hours and minutes; `+
 		`"hms" - hours, minutes and seconds; `+
@@ -104,22 +104,22 @@ func onReady() {
 
 	flag.Parse()
 
-	interval, err := parseInterval(*interval_str)
+	interval, err := parseInterval(*intervalStr)
 	if err != nil {
 		showHelpAndExit(err)
 	}
 
-	display, err := parseDisplay(*display_str)
+	display, err := parseDisplay(*displayStr)
 	if err != nil {
 		showHelpAndExit(err)
 	}
 
-	symbols, err := parseTimerSymbols(*symbolsStr, *no_symbols)
+	symbols, err := parseTimerSymbols(*symbolsStr, *noSymbols)
 	if err != nil {
 		showHelpAndExit(err)
 	}
 
-	systray.SetTooltip(fmt.Sprintf("Timer set %s", *interval_str))
+	systray.SetTooltip(fmt.Sprintf("Timer set %s", *intervalStr))
 	restartMenuItem := systray.AddMenuItem(symbols(timerRestartSymbol)+" Restart", "Restart timer")
 	stopMenuItem := systray.AddMenuItem(symbols(timerStopSymbol)+" Stop", "Stop timer")
 	continueMenuItem := systray.AddMenuItem(symbols(timerContinueSymbol)+" Continue", "Continue stopped timer")
@@ -186,12 +186,12 @@ func parseInterval(val string) (time.Duration, error) {
 	}
 
 	parseUnit := func(unitName string) int {
-		str_value := macthes[unitName]
-		if str_value == "" {
+		strValue := macthes[unitName]
+		if strValue == "" {
 			return 0
 		}
 
-		value, _ := strconv.Atoi(str_value[:len(str_value)-1])
+		value, _ := strconv.Atoi(strValue[:len(strValue)-1])
 		return value
 	}
 
@@ -250,7 +250,6 @@ func parseTimerSymbols(symbols string, dontUseSymbols bool) (timerSymbolFn, erro
 
 		runes[idx] = string(symbol)
 		idx++
-
 	}
 
 	res := func(symbolCode timerSymbolCode) string {
