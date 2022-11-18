@@ -18,7 +18,7 @@ type timer struct {
 	interval time.Duration
 	commands chan timerCommand
 	events   chan timerEvent
-	symbols timerSymbolFn
+	symbols  timerSymbolFn
 }
 
 type displayFn func(diff time.Duration) string
@@ -205,28 +205,32 @@ func parseInterval(val string) (time.Duration, error) {
 func parseDisplay(val string) (fn displayFn, err error) {
 	switch val {
 	case "h":
-		fn = func(diff time.Duration) string { return fmt.Sprintf("%dh", int(diff.Hours())) }
+		fn = func(diff time.Duration) string { return fmt.Sprintf("%dh", int(diff.Hours())+1) }
 	case "m":
-		fn = func(diff time.Duration) string { return fmt.Sprintf("%dm", int(diff.Minutes())) }
+		fn = func(diff time.Duration) string { return fmt.Sprintf("%dm", int(diff.Minutes())+1) }
 	case "s":
-		fn = func(diff time.Duration) string { return fmt.Sprintf("%ds", int(diff.Seconds())) }
+		fn = func(diff time.Duration) string { return fmt.Sprintf("%ds", int(diff.Seconds())+1) }
 	case "hm":
 		fn = func(diff time.Duration) string {
-			hours := int(diff.Hours())
-			mins := int(diff.Minutes()) - hours*60
+			mins := int(diff.Minutes()) + 1
+			hours := mins / 60
+			mins = mins % 60
 			return fmt.Sprintf("%02dh %02dm", hours, mins)
 		}
 	case "hms":
 		fn = func(diff time.Duration) string {
-			hours := int(diff.Hours())
-			mins := int(diff.Minutes()) - hours*60
-			secs := int(diff.Seconds()) - mins*60 - hours*3600
+			secs := int(diff.Seconds()) + 1
+			mins := secs / 60
+			hours := mins / 60
+			mins = mins % 60
+			secs = secs - mins*60 - hours*3600
 			return fmt.Sprintf("%02d:%02d:%02d", hours, mins, secs)
 		}
 	case "ms":
 		fn = func(diff time.Duration) string {
-			mins := int(diff.Minutes())
-			secs := int(diff.Seconds()) - mins*60
+			secs := int(diff.Seconds()) + 1
+			mins := secs / 60
+			secs = secs % 60
 			return fmt.Sprintf("%02d:%02d", mins, secs)
 		}
 	default:
