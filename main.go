@@ -28,13 +28,15 @@ type timerSymbolCode int
 type timerSymbolFn func(symbolCode timerSymbolCode) string
 
 const (
-	timerStop timerCommand = iota
-	timerContinue
-	timerRestart
+	timerStopCommand timerCommand = iota
+	timerContinueCommand
+	timerRestartCommand
 )
 
 const (
-	timeOut timerEvent = iota
+	timerOutEvent timerEvent = iota
+	timerPausedEvent
+	timerStartedEvent
 )
 
 const (
@@ -55,21 +57,26 @@ func timerLoop(timer *timer) {
 	now := time.Now()
 	stopTime := now.Add(timer.interval)
 
+	timer.events <- timerStartedEvent
+
 	for {
 		now = time.Now()
 
 		select {
 		case cmd := <-timer.commands:
 			switch cmd {
-			case timerStop:
-				started = false
+			case timerStopCommand:
 				restInterval = stopTime.Sub(now)
 				systray.SetTitle(timer.symbols(timerStopSymbol) + " " + timer.display(diff))
-			case timerContinue:
-				started = true
+				timer.events <- timerPausedEvent
+				started = false
+			case timerContinueCommand:
 				stopTime = now.Add(restInterval)
-			case timerRestart:
+				timer.events <- timerStartedEvent
+				started = true
+			case timerRestartCommand:
 				stopTime = now.Add(timer.interval)
+				timer.events <- timerStartedEvent
 				started = true
 			}
 		default:
@@ -83,11 +90,54 @@ func timerLoop(timer *timer) {
 			} else {
 				started = false
 				systray.SetTitle(timer.symbols(timerStopSymbol) + " " + timer.display(timer.interval))
+				timer.events <- timerOutEvent
 				notifyTimeout(timer)
 			}
 		}
 
 		time.Sleep(time.Second)
+	}
+}
+
+type menu struct {
+	restartMenuItem  *systray.MenuItem
+	stopMenuItem     *systray.MenuItem
+	continueMenuItem *systray.MenuItem
+	statsMenuItem    *systray.MenuItem
+	quitMenuItem     *systray.MenuItem
+}
+
+func menuLoop(menu *menu, timerEvents chan timerEvent, timerCommands chan timerCommand) {
+	intervalCounter := 0
+
+	for {
+		menu.statsMenuItem.SetTitle(fmt.Sprintf("%d intervals passed", intervalCounter))
+
+		select {
+		case timerEvent := <-timerEvents:
+			switch timerEvent {
+			case timerOutEvent:
+				menu.continueMenuItem.Disable()
+				menu.stopMenuItem.Disable()
+				intervalCounter++
+			case timerStartedEvent:
+				menu.stopMenuItem.Enable()
+				menu.continueMenuItem.Disable()
+			case timerPausedEvent:
+				menu.stopMenuItem.Disable()
+				menu.continueMenuItem.Enable()
+			}
+		case <-menu.quitMenuItem.ClickedCh:
+			systray.Quit()
+		case <-menu.statsMenuItem.ClickedCh:
+			intervalCounter = 0
+		case <-menu.restartMenuItem.ClickedCh:
+			timerCommands <- timerRestartCommand
+		case <-menu.stopMenuItem.ClickedCh:
+			timerCommands <- timerStopCommand
+		case <-menu.continueMenuItem.ClickedCh:
+			timerCommands <- timerContinueCommand
+		}
 	}
 }
 
@@ -124,46 +174,17 @@ func onReady() {
 	stopMenuItem := systray.AddMenuItem(symbols(timerStopSymbol)+" Stop", "Stop timer")
 	continueMenuItem := systray.AddMenuItem(symbols(timerContinueSymbol)+" Continue", "Continue stopped timer")
 	systray.AddSeparator()
+	statsMenuItem := systray.AddMenuItem("", "Reset stats")
 	quitMenuItem := systray.AddMenuItem("Quit", "Quit the whole app")
+
+	menu := &menu{restartMenuItem, stopMenuItem, continueMenuItem, statsMenuItem, quitMenuItem}
 
 	timerCommands := make(chan timerCommand)
 	timerEvents := make(chan timerEvent)
-	timer := timer{interval: interval, display: display, commands: timerCommands, events: timerEvents, symbols: symbols}
+	timer := &timer{interval: interval, display: display, commands: timerCommands, events: timerEvents, symbols: symbols}
 
-	go func() {
-		timerStarted := true
-
-		for {
-			if timerStarted {
-				stopMenuItem.Enable()
-				continueMenuItem.Disable()
-			} else {
-				stopMenuItem.Disable()
-				continueMenuItem.Enable()
-			}
-
-			select {
-			case timerEvent := <-timerEvents:
-				switch timerEvent {
-				case timeOut:
-					timerStarted = false
-				}
-			case <-quitMenuItem.ClickedCh:
-				systray.Quit()
-			case <-restartMenuItem.ClickedCh:
-				timerCommands <- timerRestart
-				timerStarted = true
-			case <-stopMenuItem.ClickedCh:
-				timerCommands <- timerStop
-				timerStarted = false
-			case <-continueMenuItem.ClickedCh:
-				timerCommands <- timerContinue
-				timerStarted = true
-			}
-		}
-	}()
-
-	go timerLoop(&timer)
+	go menuLoop(menu, timerEvents, timerCommands)
+	go timerLoop(timer)
 }
 
 func onExit() {
