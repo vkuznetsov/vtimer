@@ -205,21 +205,22 @@ func parseInterval(val string) (time.Duration, error) {
 func parseDisplay(val string) (fn displayFn, err error) {
 	switch val {
 	case "h":
-		fn = func(diff time.Duration) string { return fmt.Sprintf("%dh", int(diff.Hours())+1) }
+		fn = func(diff time.Duration) string { return fmt.Sprintf("%dh", int(diff.Round(time.Hour).Hours())) }
 	case "m":
-		fn = func(diff time.Duration) string { return fmt.Sprintf("%dm", int(diff.Minutes())+1) }
+		fn = func(diff time.Duration) string { return fmt.Sprintf("%dm", int(diff.Round(time.Minute).Minutes())) }
 	case "s":
-		fn = func(diff time.Duration) string { return fmt.Sprintf("%ds", int(diff.Seconds())+1) }
+		fn = func(diff time.Duration) string { return fmt.Sprintf("%ds", int(diff.Round(time.Second).Seconds())) }
 	case "hm":
 		fn = func(diff time.Duration) string {
-			mins := int(diff.Minutes()) + 1
+			mins := int(diff.Round(time.Minute).Minutes())
 			hours := mins / 60
 			mins = mins % 60
+
 			return fmt.Sprintf("%02dh %02dm", hours, mins)
 		}
 	case "hms":
 		fn = func(diff time.Duration) string {
-			secs := int(diff.Seconds()) + 1
+			secs := int(diff.Round(time.Second).Seconds())
 			mins := secs / 60
 			hours := mins / 60
 			mins = mins % 60
@@ -228,7 +229,7 @@ func parseDisplay(val string) (fn displayFn, err error) {
 		}
 	case "ms":
 		fn = func(diff time.Duration) string {
-			secs := int(diff.Seconds()) + 1
+			secs := int(diff.Round(time.Second).Seconds())
 			mins := secs / 60
 			secs = secs % 60
 			return fmt.Sprintf("%02d:%02d", mins, secs)
